@@ -1,0 +1,38 @@
+name: Upstream Sync
+
+# 赋予 GitHub Actions 写入仓库的权限
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 每天 UTC 时间 2:00 (北京时间 10:00) 自动执行
+  workflow_dispatch: # 允许在 GitHub Actions 页面手动点击触发同步
+
+jobs:
+  sync_latest_from_upstream:
+    name: Sync latest commits from upstream repo
+    runs-on: ubuntu-latest
+    if: ${{ github.event.repository.fork }}
+
+    steps:
+      # 第一步：拉取你当前仓库的代码
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+
+      # 第二步：使用成熟的开源 Action 执行自动同步
+      - name: Sync upstream changes
+        id: sync
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        with:
+          upstream_sync_repo: CorentinTh/it-tools  # 上游原仓库
+          upstream_sync_branch: main               # 上游的主分支
+          target_sync_branch: main                 # 你仓库的主分支
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动生成的 Token，无需手动配置
+
+      # 第三步：同步失败时的错误提示（通常是因为你本地修改了代码导致冲突）
+      - name: Sync check
+        if: failure()
+        run: |
+          echo "::error::同步失败！可能上游存在不兼容的更新或冲突，需要手动解决。"
+          exit 1
